@@ -1,38 +1,116 @@
 #!/usr/bin/env python3
 
-from xml.dom.minidom import parse
-import xml.dom.minidom
+from xml.dom.minidom import parseString
 import requests
+import re
+import json
+import os
+import sys
 
-#       # Open XML document using minidom parser
-#       DOMTree = xml.dom.minidom.parse("movies.xml")
-#       collection = DOMTree.documentElement
-#       if collection.hasAttribute("shelf"):
-#          print ("Root element : %s" % collection.getAttribute("shelf"))
-#       
-#       # Get all the movies in the collection
-#       movies = collection.getElementsByTagName("movie")
-#       
-#       # Print detail of each movie.
-#       for movie in movies:
-#          print ("*****Movie*****")
-#          if movie.hasAttribute("title"):
-#             print ("Title: %s" % movie.getAttribute("title"))
-#       
-#          type = movie.getElementsByTagName('type')[0]
-#          print ("Type: %s" % type.childNodes[0].data)
-#          format = movie.getElementsByTagName('format')[0]
-#          print ("Format: %s" % format.childNodes[0].data)
-#          rating = movie.getElementsByTagName('rating')[0]
-#          print ("Rating: %s" % rating.childNodes[0].data)
-#          description = movie.getElementsByTagName('description')[0]
-#          print ("Description: %s" % description.childNodes[0].data)
+exclude = [
+    'Audiodeskription',
+    'AD',
+    'Hörfassung',
+    'Vorschau',
+    'Extra',
+    'Trailer',
+    'Making-of',
+    'Tatort-Schnack',
+    'Song zum Tatort'
+]
+
+download_dir = '/home/malte/Downloads/Tatort'
+already_downloaded_file = './already_downloaded'
+
+def should_exclude(title):
+    for ex in exclude:
+        if re.search(ex, title):
+            return True
+    return False
+
+def add_to_downloaded_items(item):
+    if not os.path.exists(already_downloaded_file):
+        with open(already_downloaded_file, 'w') as f:
+            json.dump([], f)
+
+    down = []
+    with open(already_downloaded_file, 'r') as f:
+        down = json.load(f)
+        down.append(item['guid'])
+
+    with open(already_downloaded_file, 'w') as f:
+        json.dump(down, f)
+
+def download_item(item):
+    if not 'dryrun' in sys.argv:
+        print('Downloading "', item['title'], '"', sep='')
+        with requests.get(item['link'], stream=True) as r:
+            file_name = download_dir + '/' + item['title'] + '.mp4'
+            with open(file_name, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk: # filter out keep-alive new chunks
+                        f.write(chunk)
+        add_to_downloaded_items(item)
+    else:
+        print('Downloading', item['title'])
+        print('Adding', item['title'], 'to downloaded list')
+
+def parse_rss(xml):
+    dom = parseString(xml)
+    collection = dom.documentElement
+    channel = collection.getElementsByTagName('channel')
+
+    ret = []
+    titles = []
+    items = channel[0].getElementsByTagName('item')
+    for item in items:
+        title = item.getElementsByTagName('title')[0].firstChild.wholeText
+        link = item.getElementsByTagName('link')[0].firstChild.wholeText
+        category = item.getElementsByTagName('category')[0].firstChild.wholeText
+        guid = item.getElementsByTagName('guid')[0].firstChild.wholeText
+
+        if category != 'Tatort':
+            continue
+
+        if should_exclude(title):
+            continue
+
+        if title in titles:
+            continue
+
+        ret.append({
+            'title': title,
+            'link': link,
+            'category': category,
+            'guid': guid
+        })
+    return ret
+
+def filter_downloaded(items):
+    if not os.path.exists(already_downloaded_file):
+        with open(already_downloaded_file, 'w') as f:
+            json.dump([], f)
+
+    down = []
+    with open(already_downloaded_file, 'r') as f:
+        down = json.load(f)
+    ret = []
+    for item in items:
+        if not item['guid'] in down:
+            ret.append(item)
+    return ret
+
 
 if __name__ == '__main__':
     rss = requests.get('https://mediathekviewweb.de/feed?query=%23%22Tatort%22')
 
     if rss.status_code == 200:
-        print(rss.text)
+        items = parse_rss(rss.text)
+        items = filter_downloaded(items)
+
+        for item in items:
+            download_item(item)
+
     else:
         print('ERROR', rss)
 
