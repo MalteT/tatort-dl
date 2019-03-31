@@ -130,6 +130,7 @@ def download_item(item):
     path_exists = isfile(path)
     while path_exists:
         path += '_'
+        path_exists = isfile(path)
     print("Downloading: {} -> {}".format(item['title'], path))
     if not 'dryrun' in sys.argv:
         res = subprocess.run(['wget', item['link'], '-cO', path],
