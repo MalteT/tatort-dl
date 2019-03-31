@@ -127,10 +127,6 @@ def format_title(title):
 
 def download_item(item):
     path = download_dir + '/' + format_title(item['title']) + '.mp4'
-    path_exists = isfile(path)
-    while path_exists:
-        path += '_'
-        path_exists = isfile(path)
     print("Downloading: {} -> {}".format(item['title'], path))
     if not 'dryrun' in sys.argv:
         res = subprocess.run(['wget', item['link'], '-cO', path],
