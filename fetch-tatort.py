@@ -7,6 +7,7 @@ import json
 import os
 from os.path import isfile
 import sys
+import subprocess
 
 apikey = 'YOUR THETVDB API KEY'
 username = 'YOUR THETVDB USER NAME'
@@ -131,12 +132,14 @@ def download_item(item):
         path += '_'
     print("Downloading: {} -> {}".format(item['title'], path))
     if not 'dryrun' in sys.argv:
-        with requests.get(item['link'], stream=True) as r:
-            with open(path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk: # filter out keep-alive new chunks
-                        f.write(chunk)
-        add_to_downloaded_items(item)
+        res = subprocess.run(['wget', item['link'], '-cO', path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL)
+        if res.returncode == 0:
+            add_to_downloaded_items(item)
+        else:
+            print('Error downloading', item['title'])
+            print(res)
 
 def parse_rss(xml):
     dom = parseString(xml)
@@ -181,6 +184,8 @@ def filter_downloaded(items):
     for item in items:
         if not item['guid'] in down:
             ret.append(item)
+        else:
+            print('SKIPPED', item['title'])
     return ret
 
 
