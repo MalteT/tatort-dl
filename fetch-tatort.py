@@ -8,6 +8,9 @@ import os
 from os.path import isfile
 import sys
 
+apikey = 'YOUR THETVDB API KEY'
+username = 'YOUR THETVDB USER NAME'
+userkey = 'YOUR THETVDB USER KEY'
 
 tatort_tvdb_id = '83214'
 
