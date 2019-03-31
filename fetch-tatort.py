@@ -122,7 +122,7 @@ def format_title(title):
     title = title.strip()
     for t in official_info:
         if t['name'] == title:
-            return "S{:0>4}E{:0>2}".format(t['season'], t['episode'])
+            return "Tatort - S{:0>4}E{:0>2}".format(t['season'], t['episode'])
     return title
 
 def download_item(item):
